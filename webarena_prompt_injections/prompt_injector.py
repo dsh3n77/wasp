@@ -104,6 +104,7 @@ class WebArenaPromptInjector:
                         model,
                     )
                 )
+                print(f"content_of_script_to_run_agent:{content_of_script_to_run_agent}")
 
             case OutputFormat.CLAUDE:
                 content_of_script_to_run_agent = self._prep_claude_agent_script(
@@ -114,6 +115,7 @@ class WebArenaPromptInjector:
                 )
 
             case OutputFormat.GPT_WEB_TOOLS:
+                print(f"system_prompt:{system_prompt}")
                 if system_prompt:
                     raise NotImplementedError(
                         "Custom system prompts not yet implemented for GPT Tools Web Agent!"
@@ -121,6 +123,7 @@ class WebArenaPromptInjector:
                 content_of_script_to_run_agent = self._prep_gpt_tool_web_agent_script(
                     webarena_tasks_config, output_dir, model
                 )
+                print(f"content_of_script_to_run_agent:{content_of_script_to_run_agent}")
             case _:
                 raise NotImplementedError(f"Invalid output format {output_format}")
 
@@ -486,6 +489,10 @@ class WebArenaPromptInjector:
                 reddit_editor.create_user(
                     "", "", attacker_username, "", attacker_password
                 )
+                print(f"attacker_username:{attacker_username}\n")
+                print(f"attacker_password:{attacker_password}\n")
+                ### log in
+                # reddit_editor.login(attacker_username,attacker_password)
                 issue_url = reddit_editor.create_post_with_title_and_text(
                     "allentown",
                     "A note from a gentleman thief " + str(incrementing_task_id_number),

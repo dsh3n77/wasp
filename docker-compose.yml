@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  reddit:
+    image: ghcr.io/mayooear/reddit-mock-server:latest
+    ports:
+      - "9999:80"
+    restart: unless-stopped
+
+  gitlab:
+    image: ghcr.io/mayooear/gitlab-mock-server:latest
+    ports:
+      - "8023:80"
+    restart: unless-stopped

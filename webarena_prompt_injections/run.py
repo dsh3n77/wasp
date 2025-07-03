@@ -77,6 +77,7 @@ def run_all(config,
     user_goals_len = len(gitlab_user_goals.GOALS)
     injection_format_list = [PromptInjectionFormat.GOAL_HIJACKING_PLAIN_TEXT,
                              PromptInjectionFormat.GOAL_HIJACKING_URL_INJECTION]
+    # injection_format_list = [PromptInjectionFormat.GOAL_HIJACKING_URL_INJECTION]
     results_dict = defaultdict(int)
 
     for user_goal_idx in range(user_goal_start, user_goals_len):

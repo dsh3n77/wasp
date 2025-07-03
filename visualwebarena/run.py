@@ -22,7 +22,7 @@ import torch
 from PIL import Image
 
 from agent import (
-    PromptAgent,
+    PlannerExecutorAgent,
     construct_agent,
 )
 from agent.agent import ConversationRenderer
@@ -406,8 +406,8 @@ def test(args: argparse.Namespace, config_file_list: list[str]) -> None:
                     state_info["info"]["observation_metadata"],
                     action_set_tag=args.action_set_tag,
                     prompt_constructor=(
-                        agent.prompt_constructor
-                        if isinstance(agent, PromptAgent)
+                        agent.planner.prompt_constructor
+                        if isinstance(agent, PlannerExecutorAgent)
                         else None
                     ),
                 )

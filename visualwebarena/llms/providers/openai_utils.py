@@ -8,6 +8,11 @@ import os
 import random
 import time
 from typing import Any
+from camel.configs import ChatGPTConfig
+from camel.models import ModelFactory
+from camel.types import ModelPlatformType, ModelType, RoleType
+from camel.agents import ChatAgent
+from camel.messages import BaseMessage
 
 import aiolimiter
 import openai
@@ -283,6 +288,65 @@ async def agenerate_from_openai_chat_completion(
     responses = await tqdm_asyncio.gather(*async_responses)
     return [x["choices"][0]["message"]["content"] for x in responses]
 
+import json
+import requests
+from camel.messages import BaseMessage
+from PIL import Image
+import base64
+from io import BytesIO
+
+def parse_openai_messages(messages: list[dict]) -> tuple[str, BaseMessage]:
+    """
+    将 OpenAI 风格 messages 转换为 CAMEL Agent 所需的 system_prompt 和 user BaseMessage
+
+    Args:
+        messages: 包含 system + user 的完整 message 列表
+
+    Returns:
+        system_prompt: str
+        new_message: BaseMessage
+    """
+    assert messages[0]["role"] == "system"
+    system_prompt = messages[0]["content"][0]["text"]  # 假设只有一个 system content，且为 text
+
+    user_msg = messages[1]
+    role_name = user_msg["role"]
+    content_chunks = []
+    image_list = []
+
+    for block in user_msg["content"]:
+        if block["type"] == "text":
+            content_chunks.append(block["text"])
+        elif block["type"] == "image_url":
+            img_data = block["image_url"]["url"]
+            with open("/egr/research-dselab/dongshe1/wasp/output/img_data.json", "w") as f:
+                json.dump(img_data, f, indent=2)
+            # print(f"img_data:{img_data}img_data")
+            # print(type(img_data))
+            if img_data.startswith("data:image"):
+                if img_data.startswith("data:image"):
+                    base64_str = img_data.split(",")[1]
+                    img = Image.open(BytesIO(base64.b64decode(base64_str)))
+                    image_list.append(img)
+                
+    full_text = "\n".join(content_chunks)
+    print(f"full_text:{full_text}")
+    
+    os.makedirs("/egr/research-dselab/dongshe1/wasp/output/saved_images", exist_ok=True)  # 创建目录（如果不存在）
+
+    for idx, img in enumerate(image_list):
+        file_path = os.path.join("/egr/research-dselab/dongshe1/wasp/output/saved_images", f"image_{idx}.png")
+        img.save(file_path)
+        print(f"Image {idx} saved to: {file_path}")
+
+    new_message = BaseMessage.make_user_message(
+        role_name=role_name,
+        meta_dict=None,
+        content="",
+        image_list=image_list if image_list else None
+    )
+
+    return system_prompt, new_message
 
 @retry_with_exponential_backoff
 def generate_from_openai_chat_completion(
@@ -305,14 +369,33 @@ def generate_from_openai_chat_completion(
         raise ValueError(
             "AZURE_API_ENDPOINT environment variable must be set when using AZURE OpenAI API."
         )
-    response = client.chat.completions.create(
+    # response = client.chat.completions.create(
+    #     model=model,
+    #     messages=messages,
+    #     temperature=temperature,
+    #     max_tokens=max_tokens,
+    #     top_p=top_p,
+    # )
+    # answer: str = response.choices[0].message.content
+
+    model = ModelFactory.create(
+            model_platform=ModelPlatformType.OPENAI,
+            model_type=ModelType.GPT_4O,
+            api_key=os.environ["OPENAI_API_KEY"]
+            )
+    # print(f"messages:{messages}")
+    with open("/egr/research-dselab/dongshe1/wasp/output/debug_message.json", "w") as f:
+        json.dump(messages, f, indent=2)
+    system_prompt, new_message = parse_openai_messages(messages)
+    system_prompt = "can you tell me about the elements in the screenshot?"
+    # print(f"system_prompt:{system_prompt}")
+    # print(f"new_message:{new_message}new_message")
+    agent = ChatAgent(
+        system_message=system_prompt,
         model=model,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        top_p=top_p,
     )
-    answer: str = response.choices[0].message.content
+    answer = agent.step(new_message).msgs[0].content
+
     return answer
 
 

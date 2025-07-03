@@ -59,6 +59,7 @@ class RedditEditor(BaseWebArenaEditor):
             password (str): The new reddit password.
         """
         start_url = f"{self.reddit_domain}/registration"
+        print(start_url)
         self.page.goto(start_url, wait_until="networkidle")
 
         self.page.set_viewport_size({"width": 1280, "height": 720})
@@ -83,6 +84,7 @@ class RedditEditor(BaseWebArenaEditor):
         try:
             with self.page.expect_navigation():
                 self.page.click('button:has-text("Sign up")')
+                # self.page.click('text="Sign up"', timeout=60000)
         except TimeoutError:
             screenshot_path = "/tmp/debug_redditeditor_signup.png"
             self.page.screenshot(path=screenshot_path)
@@ -93,6 +95,17 @@ class RedditEditor(BaseWebArenaEditor):
         if self.page.url.strip("/") == start_url and "This value is already used" in self.page.content():
             print(f"[Reddit Warning!] The account {username} has already been created! Trying to login...")
             self.login(username, password)
+
+    def _ensure_subscribed(self, forum: str):
+        forum_path = forum.strip("/")
+        self.page.goto(f"{self.reddit_domain}/f/{forum_path}", wait_until="networkidle")
+        try:
+            subscribe_btn = self.page.query_selector("button:has-text('Subscribe')")
+            if subscribe_btn:
+                subscribe_btn.click()
+                self.page.wait_for_timeout(500)  # allow DOM to update
+        except Exception as e:
+            print(f"[Warning] Failed to auto-subscribe to /f/{forum_path}: {e}")
 
     def create_post_with_title_and_text(
         self, forum: str, title_to_type_in: str, text_to_type_in: str, username: str
@@ -116,17 +129,18 @@ class RedditEditor(BaseWebArenaEditor):
                 print(f"[Warning!] A post with title '{title_to_type_in}' already exists: {href}, skipping...")
                 return f"{self.reddit_domain}{href}"
 
-
         url_of_action = f"{self.reddit_domain}/submit"
         selector_title_to_type_in = "#submission_title"
         selector_text_to_type_in = "#submission_body"
         selector_forum = "#submission_forum"
         selector_of_submit_button = 'button:has-text("Create submission")'
+        # self._ensure_subscribed(forum)
 
         self.page.goto(url_of_action, wait_until="networkidle")
 
         try:
             self.page.wait_for_selector(selector_title_to_type_in, timeout=10000)
+
         except:
             screenshot_path = "/tmp/debug_redditeditor_notitlefiled.png"
             self.page.screenshot(path=screenshot_path)
@@ -135,7 +149,32 @@ class RedditEditor(BaseWebArenaEditor):
             )
         self.page.fill(selector_title_to_type_in, title_to_type_in)
         self.page.fill(selector_text_to_type_in, text_to_type_in)
-        self.page.select_option(selector_forum, forum)
+        # print(f"[DEBUG] forum to select: {forum}")
+        # print(f"[DEBUG] Page URL: {self.page.url}")
+
+        # # 选项检查
+        # options = self.page.eval_on_selector_all(
+        #     "#submission_forum option",
+        #     "els => els.map(e => e.value)"
+        # )
+        # print(f"[DEBUG] Available options: {options}")
+
+        # 构建 value-text 映射
+        options = self.page.eval_on_selector_all(
+            "#submission_forum option",
+            "els => els.map(e => ({ value: e.value, text: e.textContent.trim() }))"
+        )
+
+        # 找到匹配的 forum ID
+        forum_value = None
+        for opt in options:
+            if forum.lower() in opt["text"].lower():
+                forum_value = opt["value"]
+                break
+
+        if forum_value is None:
+            raise ValueError(f"Forum '{forum}' not found in available options: {[opt['text'] for opt in options]}")
+        self.page.select_option(selector_forum, forum_value)
 
         self.page.click(selector_of_submit_button)
         self.page.wait_for_load_state("networkidle")
