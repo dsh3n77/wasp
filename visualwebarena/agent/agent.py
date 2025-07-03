@@ -513,7 +513,7 @@ class PromptPlanner(Agent):
             self.multimodal_inputs = True
         else:
             self.multimodal_inputs = False
-        self.model = model = ModelFactory.create(
+        self.model = ModelFactory.create(
             model_platform=ModelPlatformType.OPENAI,
             model_type=ModelType.GPT_4O,
             api_key=os.environ["OPENAI_API_KEY"]
